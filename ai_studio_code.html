@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KI Tagebuch Pro</title>
+    <style>
+        :root {
+            --background-color: #0d0d0d;
+            --text-color: #e0e0e0;
+            --ai-bubble-color: #2a2a2a;
+            --input-area-color: #1a1a1a;
+            --input-text-color: #ffffff;
+            --accent-color: #9400D3; /* DarkViolet */
+            --accent-glow-color-1: rgba(148, 0, 211, 0.6);
+            --accent-glow-color-2: rgba(148, 0, 211, 0.4);
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        html, body {
+            margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+            font-family: var(--font-family); background-color: var(--background-color); color: var(--text-color);
+        }
+        #app-container { display: flex; flex-direction: column; height: 100vh; }
+        #chat-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px; background-color: var(--input-area-color);
+            font-weight: bold; font-size: 1.1em; border-bottom: 1px solid #333; flex-shrink: 0;
+            color: var(--accent-color);
+            text-shadow: 0 0 8px var(--accent-glow-color-2);
+        }
+        .header-button { background: none; border: none; cursor: pointer; padding: 5px; }
+        .header-button svg { width: 22px; height: 22px; fill: #888; transition: fill 0.2s; }
+        .header-button:hover svg { fill: var(--accent-color); }
+        #chat-container { flex-grow: 1; overflow-y: auto; padding: 20px 10px; display: flex; flex-direction: column; }
+        .message {
+            max-width: 80%; padding: 10px 15px; border-radius: 18px;
+            margin-bottom: 10px; line-height: 1.4; word-wrap: break-word;
+        }
+        .message .author { font-size: 0.8em; font-weight: bold; margin-bottom: 5px; opacity: 0.8; }
+        .user-message {
+            background-color: var(--accent-color); color: white; align-self: flex-end; border-bottom-right-radius: 4px;
+            box-shadow: 0 0 8px var(--accent-glow-color-2);
+        }
+        .ai-message { background-color: var(--ai-bubble-color); color: var(--text-color); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .message-image { max-width: 100%; border-radius: 10px; margin-top: 8px; }
+        .placeholder { position: relative; color: #999; font-style: italic; overflow: hidden; }
+        .placeholder::after {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shine 2.5s infinite ease-in-out;
+        }
+        @keyframes shine { 100% { transform: translateX(200%); } }
+        #chat-form {
+            display: flex; padding: 10px; background-color: var(--input-area-color);
+            border-top: 1px solid #333; flex-shrink: 0; align-items: center;
+        }
+        #user-input {
+            flex-grow: 1; padding: 12px; border-radius: 20px; border: none;
+            background-color: #3a3a3a; color: var(--input-text-color); font-size: 1em; margin-right: 10px;
+        }
+        #user-input:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-color), 0 0 8px var(--accent-glow-color-1); }
+        .icon-button { background-color: transparent; border: none; cursor: pointer; padding: 8px; display: flex; align-items: center; justify-content: center; }
+        .icon-button svg { width: 24px; height: 24px; fill: #888; transition: fill 0.2s; }
+        .icon-button:hover svg { fill: var(--accent-color); }
+        #send-button {
+            background-color: var(--accent-color); border-radius: 50%; width: 44px; height: 44px; margin-left: 5px;
+            box-shadow: 0 0 10px var(--accent-glow-color-1);
+        }
+        #send-button:disabled { background-color: #555; cursor: not-allowed; box-shadow: none; }
+        #send-button svg { fill: white; }
+        
+        /* --- Onboarding & Camera Modal Styles --- */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9); z-index: 1000;
+            flex-direction: column; justify-content: center; align-items: center;
+            padding: 20px; box-sizing: border-box;
+        }
+        #onboarding-content { text-align: center; color: white; max-width: 400px; }
+        #onboarding-content h2 { color: var(--accent-color); text-shadow: 0 0 8px var(--accent-glow-color-2); }
+        #onboarding-content p a { color: var(--accent-color); text-decoration: none; font-weight: bold; }
+        #onboarding-input {
+            width: 100%; padding: 12px; font-size: 1.1em; text-align: center;
+            border-radius: 10px; border: 1px solid #555; background-color: #333; color: white;
+            margin-top: 20px; margin-bottom: 25px; box-sizing: border-box;
+        }
+        #onboarding-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 8px var(--accent-glow-color-1); }
+        #onboarding-next-button {
+            padding: 12px 30px; font-size: 1.1em; font-weight: bold;
+            border: none; border-radius: 25px; cursor: pointer;
+            background-color: var(--accent-color); color: white;
+            box-shadow: 0 0 10px var(--accent-glow-color-1); transition: transform 0.2s;
+        }
+        #onboarding-next-button:hover { transform: scale(1.05); }
+
+        #video-feed { width: 100%; max-width: 600px; max-height: 80vh; }
+        #camera-controls {
+            position: absolute; bottom: 20px; width: 100%;
+            display: flex; justify-content: space-around; align-items: center;
+        }
+        .camera-control-button {
+            background-color: rgba(255,255,255,0.2); border: 2px solid white;
+            border-radius: 50%; width: 60px; height: 60px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .camera-control-button svg { width: 30px; height: 30px; fill: white; }
+        #capture-button { background-color: white; }
+        #capture-button svg { fill: black; }
+        #canvas { display: none; }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <header id="chat-header">
+            <span>Dein KI Tagebuch</span>
+            <button id="clear-memory-button" class="header-button" title="Gedächtnis löschen">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+        </header>
+        <div id="chat-container"></div>
+        <form id="chat-form">
+            <button type="button" id="camera-button" class="icon-button" title="Foto aufnehmen">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5c-2.49 0-4.5-2.01-4.5-4.5S12.51 6.5 15 6.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
+            </button>
+            <input type="text" id="user-input" placeholder="Worüber denkst du nach?" autocomplete="off">
+            <button type="submit" id="send-button" class="icon-button">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </form>
+    </div>
+
+    <!-- Modals -->
+    <div id="camera-modal" class="modal-overlay">
+        <video id="video-feed" autoplay playsinline></video>
+        <div id="camera-controls">
+            <button id="switch-camera-button" class="camera-control-button" title="Kamera wechseln">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.86 8.86C11.03 7.69 12.63 7 14.5 7c1.18 0 2.29.3 3.24.8L19.5 6.04C17.96 4.79 16.3 4 14.5 4c-1.74 0-3.34.78-4.55 2.02l-1.41-1.41L7.12 6.02 9.86 8.86zM14.14 15.14c-1.17 1.17-2.77 1.86-4.64 1.86-1.18 0-2.29-.3-3.24-.8L4.5 17.96c1.54 1.25 3.2 1.96 5 1.96 1.74 0 3.34-.78 4.55-2.02l1.41 1.41 1.41-1.41L14.14 15.14zM20 5v14c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2zm-2 0H6v14h12V5z"/></svg>
+            </button>
+            <button id="capture-button" class="camera-control-button" title="Foto aufnehmen">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+            </button>
+            <button id="close-camera-button" class="camera-control-button" title="Schließen">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+        </div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="onboarding-modal" class="modal-overlay">
+        <div id="onboarding-content">
+            <h2 id="onboarding-title"></h2>
+            <p id="onboarding-text"></p>
+            <h3 id="onboarding-question"></h3>
+            <input type="text" id="onboarding-input">
+            <button id="onboarding-next-button">Weiter</button>
+        </div>
+    </div>
+
+    <script>
+        // --- THE CRITICAL PROMPT UPDATE ---
+        const BASE_SYSTEM_PROMPT = `
+### **1. Deine Persona und dein Hauptziel:**
+Du bist ein deutsches "KI-Tagebuch". Du kommunizierst ausschließlich auf Deutsch. Du bist ein Tagebuch, kein Programmierer. Generiere niemals Code oder Markdown.
+
+### **2. Deine Fähigkeiten und dein Kontext-Wissen:**
+- **Zeit-Bewusstsein:** Du bist dir des aktuellen Datums und der Uhrzeit **immer bewusst**. Das System versorgt dich bei jeder Anfrage mit diesen Informationen. Verwende diese Information **immer**, wenn der Benutzer danach fragt. Behaupte **niemals**, dass du die Zeit nicht kennst.
+- **Bild-Verständnis:** Du **BIST** in der Lage, Bilder zu sehen, zu analysieren und zu verstehen. Behaupte **NIEMALS**, dass du keine Bilder sehen kannst. Wenn du ein Bild erhältst, beschreibe es und reagiere darauf.
+- **Aktueller Zeitpunkt:** {current_timestamp}
+
+### **3. Deine Denk- und Antwort-Struktur ("Scratchpad"-Methode):**
+Deine Antwort erfolgt in einem einzigen Textblock.
+
+**Teil 1: Interner Gedankengang (Optional)**
+- **Regel für Speichern:** Wenn du eine wichtige Information speichern musst, fasse diese **als Allererstes** in einem vollständigen \`<save>...\</save>\`-Tag zusammen.
+- **WICHTIG:** Beginne den Inhalt des \`<save>\`-Tags **immer** mit dem oben angegebenen Zeitstempel, gefolgt von der Zusammenfassung. Die Zusammenfassung muss **IMMER AUF DEUTSCH** sein.
+
+**Teil 2: Externe Antwort (Immer erforderlich)**
+- Schreibe **nach** dem optionalen \`<save>\`-Tag deine normale, freundliche Antwort für den Benutzer.
+- **FORMATIERUNGSREGEL:** Deine externe Antwort darf **NIEMALS** mit einem Backtick (\`) beginnen.
+`;
+        const LOCAL_STORAGE_KEY = 'kiTagebuchMemories';
+        const ONBOARDING_KEY = 'kiTagebuchOnboardingComplete';
+        const API_KEY_STORAGE_KEY = 'kiTagebuchApiKey';
+        const WORD_STREAM_INTERVAL = 50; 
+
+        // --- Element References ---
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const clearMemoryButton = document.getElementById('clear-memory-button');
+        const cameraButton = document.getElementById('camera-button');
+        const cameraModal = document.getElementById('camera-modal');
+        const videoFeed = document.getElementById('video-feed');
+        const canvas = document.getElementById('canvas');
+        const captureButton = document.getElementById('capture-button');
+        const switchCameraButton = document.getElementById('switch-camera-button');
+        const closeCameraButton = document.getElementById('close-camera-button');
+        const onboardingModal = document.getElementById('onboarding-modal');
+        const onboardingTitle = document.getElementById('onboarding-title');
+        const onboardingText = document.getElementById('onboarding-text');
+        const onboardingQuestion = document.getElementById('onboarding-question');
+        const onboardingInput = document.getElementById('onboarding-input');
+        const onboardingNextButton = document.getElementById('onboarding-next-button');
+
+        let API_KEY = null;
+        let conversationHistory = [];
+        let memories = [];
+        let cameraStream = null;
+        let currentFacingMode = 'environment';
+        let onboardingState = 'apiKey';
+
+        const onboardingSteps = {
+            apiKey: { title: "Einrichtung", text: `Um zu funktionieren, benötigt dieses Tagebuch Zugriff auf die Google AI. Bitte erstelle einen kostenlosen API-Schlüssel im <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> und füge ihn hier ein.`, question: "Dein Google AI API-Schlüssel:", placeholder: "Füge deinen AI Studio Schlüssel hier ein", input_type: "password" },
+            name: { title: "Personalisierung", text: "Perfekt! Lass uns nun dein Tagebuch persönlich einrichten.", question: "Wie möchtest du, dass ich dich nenne?", placeholder: "Dein Name oder Spitzname", input_type: "text", memoryTemplate: "Der Benutzer möchte '{answer}' genannt werden." },
+            topics: { question: "Gibt es bestimmte Themen, bei denen ich besonders aufmerksam sein soll?", placeholder: "z.B. Arbeit, Hobbys, Beziehungen", input_type: "text", memoryTemplate: "Der Benutzer wünscht besondere Aufmerksamkeit bei folgenden Themen: '{answer}'." },
+            style: { question: "Bevorzugst du Ratschläge, oder soll ich hauptsächlich zuhören?", placeholder: "z.B. 'Ratschläge geben' oder 'eher zuhören'", input_type: "text", memoryTemplate: "Der Benutzer bevorzugt, dass ich hauptsächlich '{answer}' bin." }
+        };
+
+        class WordByWordStreamer {
+            constructor(targetContentDiv) { this.targetContentDiv = targetContentDiv; this.wordQueue = []; this.textBuffer = ''; this.intervalId = null; this.isFinished = new Promise(resolve => this.resolveFinished = resolve); }
+            start() { this.intervalId = setInterval(() => { if (this.wordQueue.length > 0) { const word = this.wordQueue.shift(); this.targetContentDiv.textContent += (this.targetContentDiv.textContent.length > 0 ? ' ' : '') + word; scrollToBottom(); } else if (this.textBuffer === null) { clearInterval(this.intervalId); this.resolveFinished(); } }, WORD_STREAM_INTERVAL); }
+            processFullText(fullText) { this.wordQueue.push(...fullText.split(' ').filter(w => w)); }
+            finish() { this.textBuffer = null; }
+        }
+
+        // --- Utility Functions ---
+        function getFormattedTimestamp() { const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); const hours = String(now.getHours()).padStart(2, '0'); const minutes = String(now.getMinutes()).padStart(2, '0'); return `[${year}-${month}-${day} ${hours}:${minutes}]`; }
+        function loadMemories() { const storedMemories = localStorage.getItem(LOCAL_STORAGE_KEY); return storedMemories ? JSON.parse(storedMemories) : []; }
+        function saveMemories() { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(memories)); }
+        
+        function generateFullSystemPrompt() {
+            let fullPrompt = BASE_SYSTEM_PROMPT.replace('{current_timestamp}', getFormattedTimestamp());
+            if (memories.length > 0) {
+                fullPrompt += "\n\n### **Dein Langzeitgedächtnis (Bisherige gespeicherte Fakten):**\n";
+                fullPrompt += memories.map(mem => `- ${mem}`).join('\n');
+            }
+            return fullPrompt;
+        }
+
+        function scrollToBottom() { chatContainer.scrollTop = chatContainer.scrollHeight; }
+        
+        function displayMessage(role, text = '', imageDataUrl = null) {
+            const messageDiv = document.createElement('div'); messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'ai-message');
+            const authorDiv = document.createElement('div'); authorDiv.classList.add('author'); authorDiv.textContent = role === 'user' ? 'Du' : 'Tagebuch';
+            const contentDiv = document.createElement('div');
+            if (text) { const textNode = document.createElement('p'); textNode.textContent = text; textNode.style.margin = '0'; if(imageDataUrl) textNode.style.marginBottom = '8px'; contentDiv.appendChild(textNode); }
+            if (imageDataUrl) { const img = document.createElement('img'); img.src = imageDataUrl; img.classList.add('message-image'); contentDiv.appendChild(img); }
+            messageDiv.appendChild(authorDiv); messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv); scrollToBottom();
+            return { contentDiv };
+        }
+        
+        async function getFullResponse(apiHistory) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: apiHistory, systemInstruction: { parts: [{ text: generateFullSystemPrompt() }] } }) });
+            if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error.message || 'API request failed'); }
+            const data = await response.json();
+            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts) { return ""; }
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        async function handleUserSubmit(userText, imageDataUrl = null) {
+            if (!userText && !imageDataUrl) return;
+            if (!API_KEY) { alert('API-Schlüssel fehlt. Bitte lade die App neu, um ihn einzurichten.'); return; }
+            const userParts = [];
+            if (imageDataUrl) { userParts.push({ inlineData: { mimeType: 'image/jpeg', data: imageDataUrl.split(',')[1] } }); }
+            if (userText) { userParts.push({ text: userText }); }
+            displayMessage('user', userText, imageDataUrl);
+            conversationHistory.push({ role: 'user', parts: userParts });
+            userInput.value = '';
+            sendButton.disabled = true;
+            const { contentDiv } = displayMessage('ai');
+            contentDiv.textContent = "Moment, ich ordne meine Gedanken...";
+            contentDiv.classList.add('placeholder');
+            try {
+                const fullResponse = await getFullResponse(conversationHistory);
+                const saveMatch = fullResponse.match(/<save>([\s\S]*?)<\/save>/);
+                let userFacingText = fullResponse;
+                if (saveMatch && saveMatch[1]) {
+                    const memoryContent = saveMatch[1].trim();
+                    if (memoryContent) { memories.push(memoryContent); saveMemories(); }
+                    userFacingText = fullResponse.replace(saveMatch[0], '').trim();
+                }
+                if (!userFacingText) userFacingText = "Verstanden. Das habe ich mir gemerkt.";
+                conversationHistory.push({ role: 'model', parts: [{ text: userFacingText }] });
+                contentDiv.classList.remove('placeholder');
+                contentDiv.textContent = ''; 
+                const streamer = new WordByWordStreamer(contentDiv);
+                streamer.start();
+                streamer.processFullText(userFacingText);
+                streamer.finish();
+                await streamer.isFinished;
+            } catch (error) {
+                console.error(error);
+                contentDiv.classList.remove('placeholder');
+                contentDiv.textContent = `Fehler: ${error.message}`;
+            } finally {
+                sendButton.disabled = false;
+                userInput.focus();
+            }
+        }
+        
+        // --- Onboarding Logic ---
+        function setOnboardingStep(step) {
+            const config = onboardingSteps[step];
+            onboardingState = step;
+            if(config.title) onboardingTitle.textContent = config.title;
+            if(config.text) onboardingText.innerHTML = config.text; 
+            onboardingQuestion.textContent = config.question;
+            onboardingInput.placeholder = config.placeholder;
+            onboardingInput.type = config.input_type;
+            onboardingInput.value = '';
+            onboardingInput.focus();
+        }
+        function handleOnboardingNext() {
+            const answer = onboardingInput.value.trim();
+            if (!answer) return;
+            if (onboardingState === 'apiKey') {
+                if(answer.length < 30) { alert("Dies scheint kein gültiger API-Schlüssel zu sein. Er ist normalerweise länger."); return; }
+                API_KEY = answer;
+                localStorage.setItem(API_KEY_STORAGE_KEY, answer);
+                setOnboardingStep('name');
+            } else {
+                const config = onboardingSteps[onboardingState];
+                const memoryText = config.memoryTemplate.replace('{answer}', answer);
+                memories.push(getFormattedTimestamp() + ' ' + memoryText);
+                
+                if (onboardingState === 'name') setOnboardingStep('topics');
+                else if (onboardingState === 'topics') setOnboardingStep('style');
+                else if (onboardingState === 'style') {
+                    saveMemories();
+                    localStorage.setItem(ONBOARDING_KEY, 'true');
+                    onboardingModal.style.display = 'none';
+                    initializeApp();
+                }
+            }
+        }
+        onboardingNextButton.addEventListener('click', handleOnboardingNext);
+        onboardingInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleOnboardingNext(); });
+
+        // --- Camera Logic ---
+        async function startCamera(facingMode) {
+            if (cameraStream) { cameraStream.getTracks().forEach(track => track.stop()); }
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
+                videoFeed.srcObject = cameraStream;
+                cameraModal.style.display = 'flex';
+            } catch (err) { console.error("Kamera-Fehler:", err); alert("Kamera konnte nicht gestartet werden. Bitte überprüfe die Berechtigungen."); }
+        }
+        function stopCamera() { if (cameraStream) { cameraStream.getTracks().forEach(track => track.stop()); } cameraModal.style.display = 'none'; }
+        cameraButton.addEventListener('click', () => startCamera(currentFacingMode));
+        closeCameraButton.addEventListener('click', stopCamera);
+        switchCameraButton.addEventListener('click', () => { currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user'; startCamera(currentFacingMode); });
+        captureButton.addEventListener('click', () => {
+            canvas.width = videoFeed.videoWidth; canvas.height = videoFeed.videoHeight;
+            const context = canvas.getContext('2d'); context.drawImage(videoFeed, 0, 0, canvas.width, canvas.height);
+            const imageDataUrl = canvas.toDataURL('image/jpeg');
+            stopCamera();
+            handleUserSubmit(userInput.value.trim(), imageDataUrl);
+        });
+
+        // --- Event Listeners ---
+        clearMemoryButton.addEventListener('click', () => { if (confirm('Bist du sicher, dass du das gesamte Gedächtnis und den API-Schlüssel dieses Tagebuchs unwiderruflich löschen möchtest?')) { localStorage.removeItem(LOCAL_STORAGE_KEY); localStorage.removeItem(ONBOARDING_KEY); localStorage.removeItem(API_KEY_STORAGE_KEY); location.reload(); } });
+        chatForm.addEventListener('submit', (e) => { e.preventDefault(); handleUserSubmit(userInput.value.trim()); });
+
+        // --- App Initialization ---
+        function initializeApp() {
+            memories = loadMemories();
+            if (conversationHistory.length === 0) {
+                 const { contentDiv } = displayMessage('ai', "Hallo. Unser gemeinsames Gedächtnis ist geladen und ich bin bereit. Worüber denkst du heute nach?");
+                 conversationHistory.push({ role: 'model', parts: [{ text: contentDiv.textContent }] });
+            }
+            userInput.focus();
+        }
+
+        window.onload = () => {
+            API_KEY = localStorage.getItem(API_KEY_STORAGE_KEY);
+            const onboardingComplete = localStorage.getItem(ONBOARDING_KEY);
+            if (!API_KEY || !onboardingComplete) {
+                onboardingModal.style.display = 'flex';
+                if (!API_KEY) {
+                    setOnboardingStep('apiKey');
+                } else {
+                    setOnboardingStep('name');
+                }
+            } else {
+                initializeApp();
+            }
+        };
+    </script>
+</body>
+</html>
