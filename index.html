@@ -211,7 +211,7 @@ Deine Antwort erfolgt in einem einzigen Textblock.
         let onboardingState = 'apiKey';
 
         const onboardingSteps = {
-            apiKey: { title: "Willkommen bei Lumina", text: `Um zu funktionieren, benötigt Lumina Zugriff auf die Google AI. Bitte erstelle einen kostenlosen API-Schlüssel im <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> und füge ihn hier ein.`, question: "Dein Google AI API-Schlüssel:", placeholder: "Füge deinen AI Studio Schlüssel hier ein", input_type: "password" },
+            apiKey: { title: "Willkommen bei Lumina", text: `Um zu funktionieren, benötigt Lumina Zugriff auf die Google AI. Bitte erstelle einen kostenlosen API-Schlüssel im <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> und füge ihn hier ein.`, question: "Dein Google AI API-Schlüssel:", placeholder: "Füge deinen AI Studio Schlüssel hier ein", input_type: "text" },
             name: { title: "Personalisierung", text: "Perfekt! Lass uns nun dein Tagebuch persönlich einrichten.", question: "Wie möchtest du, dass ich dich nenne?", placeholder: "Dein Name oder Spitzname", input_type: "text", memoryTemplate: "Der Benutzer möchte '{answer}' genannt werden." },
             topics: { question: "Gibt es bestimmte Themen, bei denen ich besonders aufmerksam sein soll?", placeholder: "z.B. Arbeit, Hobbys, Beziehungen", input_type: "text", memoryTemplate: "Der Benutzer wünscht besondere Aufmerksamkeit bei folgenden Themen: '{answer}'." },
             style: { question: "Bevorzugst du Ratschläge, oder soll ich hauptsächlich zuhören?", placeholder: "z.B. 'Ratschläge geben' oder 'eher zuhören'", input_type: "text", memoryTemplate: "Der Benutzer bevorzugt, dass ich hauptsächlich '{answer}' bin." }
